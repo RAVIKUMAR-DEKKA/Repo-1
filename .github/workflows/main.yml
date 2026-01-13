@@ -1,11 +1,7 @@
-name: Docker Build and Trivy Scan (Reusable)
+name: Docker Build and Trivy Scan
 
 on:
-  workflow_call:
-    inputs:
-      image_name:
-        required: true
-        type: string
+  workflow_call: 
 
 jobs:
   build-and-scan:
@@ -16,12 +12,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker Image
-        run: docker build -t ${{ inputs.image_name }} .
+        run: docker build -t repo1-image .
 
       - name: Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ inputs.image_name }}
+          image-ref: repo1-image
           format: table
           exit-code: 0
           severity: CRITICAL,HIGH
