@@ -1,7 +1,7 @@
 name: Docker Build and Trivy Scan
 
 on:
-  workflow_call: 
+  workflow_call:   # 👈 makes this workflow reusable
 
 jobs:
   build-and-scan:
