@@ -1,29 +1,26 @@
 name: Docker Build and Trivy Scan
 
 on:
-  workflow_call:
-    inputs:
-      repo_name:
-        required: true
-        type: string
+  push:
+    branches: [ "main" ]
+
+  workflow_call:   # 👈 REQUIRED for reusable workflow
 
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Caller Repo Code
+      - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          repository: ${{ inputs.repo_name }}
 
       - name: Build Docker Image
-        run: docker build -t app-image .
+        run: docker build -t repo1-image .
 
       - name: Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: app-image
+          image-ref: repo1-image
           format: table
           exit-code: 0
           severity: CRITICAL,HIGH
