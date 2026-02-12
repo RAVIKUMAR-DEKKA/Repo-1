@@ -1,26 +1,46 @@
 name: Docker Build and Trivy Scan
 
 on:
+  # You can keep push if you also want Repo-1 to run on its own pushes
   push:
     branches: [ "main" ]
 
-  workflow_call:   # 👈 REQUIRED for reusable workflow
+  # 👇 Required to allow other repos to call this workflow
+  workflow_call:
+    inputs:
+      # Optional: only include inputs you actually need.
+      # Remove this block entirely if you don't need inputs.
+      repo_name:
+        description: 'Name of the calling repository'
+        required: false
+        type: string
+    secrets:
+      # Optional: declare any secrets you want callers to pass
+      # e.g. DOCKERHUB_TOKEN, GHCR_TOKEN, etc.
+      DOCKER_TOKEN:
+        required: false
 
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout caller repository
         uses: actions/checkout@v4
 
-      - name: Build Docker Image
+      - name: Show caller repo (optional)
+        run: echo "Called by: ${{ inputs.repo_name || github.repository }}"
+
+      - name: Set up Docker Buildx (recommended)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
         run: docker build -t repo1-image .
 
-      - name: Trivy Scan
-        uses: aquasecurity/trivy-action@master
+      - name: Run Trivy scan
+        uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: repo1-image
           format: table
           exit-code: 1
-          severity: CRITICAL
+          severity: CRITICAL,HIGH
