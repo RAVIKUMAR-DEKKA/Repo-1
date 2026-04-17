@@ -1,0 +1,87 @@
+name: Teams Notification (Stateful)
+
+on:
+  workflow_call:
+    inputs:
+      status:
+        required: true
+        type: string   # success / failure
+      repo:
+        required: true
+        type: string
+      workflow:
+        required: true
+        type: string
+      run_id:
+        required: true
+        type: string
+    secrets:
+      TEAMS_WEBHOOK_URL:
+        required: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Download previous status (if exists)
+      - name: Download last status
+        uses: actions/download-artifact@v4
+        with:
+          name: last-status
+          path: ./state
+        continue-on-error: true
+
+      # 2️⃣ Decide whether to notify
+      - name: Decide notification
+        id: decision
+        run: |
+          CURRENT="${{ inputs.status }}"
+          LAST="none"
+
+          if [ -f ./state/last-status.txt ]; then
+            LAST=$(cat ./state/last-status.txt)
+          fi
+
+          echo "Last status: $LAST"
+          echo "Current status: $CURRENT"
+
+          SEND="false"
+
+          if [ "$CURRENT" = "failure" ]; then
+            SEND="true"
+          elif [ "$CURRENT" = "success" ] && [ "$LAST" = "failure" ]; then
+            SEND="true"
+          fi
+
+          echo "send=$SEND" >> $GITHUB_OUTPUT
+
+      # 3️⃣ Send Teams notification (only if needed)
+      - name: Send Teams notification
+        if: steps.decision.outputs.send == 'true'
+        run: |
+          if [ "${{ inputs.status }}" = "failure" ]; then
+            ICON="❌"
+            RESULT="FAILED"
+          else
+            ICON="✅"
+            RESULT="RECOVERED"
+          fi
+
+          curl -H "Content-Type: application/json" \
+          -d "{
+            \"text\": \"$ICON Workflow $RESULT\n\nRepository: ${{ inputs.repo }}\nWorkflow: ${{ inputs.workflow }}\nRun ID: ${{ inputs.run_id }}\"
+          }" \
+          ${{ secrets.TEAMS_WEBHOOK_URL }}
+
+      # 4️⃣ Save current status for next run
+      - name: Save current status
+        run: |
+          mkdir -p state
+          echo "${{ inputs.status }}" > state/last-status.txt
+
+      - name: Upload last status
+        uses: actions/upload-artifact@v4
+        with:
+          name: last-status
+          path: state/last-status.txt
