@@ -10,56 +10,58 @@ on:
         description: "Name of the calling repository"
         required: false
         type: string
-    secrets:
-      DOCKER_TOKEN:
-        required: false
 
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout caller repository
+      # 1️⃣ Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Show caller repo (optional)
+      # 2️⃣ Show caller repo (optional)
+      - name: Show caller repo
         env:
           CALLER_REPO: ${{ inputs.repo_name }}
         run: |
           echo "Called by: ${CALLER_REPO:-$GITHUB_REPOSITORY}"
 
+      # 3️⃣ Setup Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # 4️⃣ Build Docker image
       - name: Build Docker image
         run: docker build -t repo1-image .
 
+      # 5️⃣ Run Trivy scan (fails workflow on CRITICAL issues)
       - name: Run Trivy scan
-        uses: aquasecurity/trivy-action@0.20.0
+        uses: aquasecurity/trivy-action@v0
         with:
           image-ref: repo1-image
           format: table
           exit-code: 1
           severity: CRITICAL
 
-      # ✅ Success notification
-      - name: Send Teams notification on success
-        if: success()
+      # 6️⃣ Send Microsoft Teams notification (SUCCESS or FAILURE)
+      - name: Send Teams notification
+        if: always()
         env:
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
         run: |
-          curl -H "Content-Type: application/json" \
-          -d '{
-                "text": "✅ Workflow SUCCESS\n\nRepository: '${{ github.repository }}'\nWorkflow: '${{ github.workflow }}'\nRun ID: '${{ github.run_id }}'"
-              }' $TEAMS_WEBHOOK_URL
+          STATUS="${{ job.status }}"
 
-      # ❌ Failure notification
-      - name: Send Teams notification on failure
-        if: failure()
-        env:
-          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
-        run: |
+          if [ "$STATUS" = "success" ]; then
+            ICON="✅"
+            RESULT="SUCCESS"
+          else
+            ICON="❌"
+            RESULT="FAILED"
+          fi
+
           curl -H "Content-Type: application/json" \
-          -d '{
-                "text": "❌ Workflow FAILED\n\nRepository: '${{ github.repository }}'\nWorkflow: '${{ github.workflow }}'\nRun ID: '${{ github.run_id }}'"
-              }' $TEAMS_WEBHOOK_URL
+          -d "{
+            \"text\": \"$ICON Workflow $RESULT\n\nRepository: ${{ github.repository }}\nWorkflow: ${{ github.workflow }}\nRun ID: ${{ github.run_id }}\"
+          }" \
+          $TEAMS_WEBHOOK_URL
