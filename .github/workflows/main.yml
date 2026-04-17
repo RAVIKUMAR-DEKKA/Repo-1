@@ -2,16 +2,12 @@ name: Docker Build and Trivy Scan
 
 on:
   push:
-    branches: ["main"]
-
-  workflow_call:
-    inputs:
-      repo_name:
-        required: false
-        type: string
+    branches:
+      - main
 
 jobs:
   build-and-scan:
+    name: Build Docker image and Scan with Trivy
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +20,7 @@ jobs:
       - name: Build Docker image
         run: docker build -t repo1-image .
 
-      - name: Run Trivy scan
+      - name: Run Trivy vulnerability scan
         uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: repo1-image
@@ -32,21 +28,15 @@ jobs:
           exit-code: 1
           severity: CRITICAL
 
-      - name: Send Teams notification
-        if: always()
-        env:
-          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
-        run: |
-          if [ "${{ job.status }}" = "success" ]; then
-            ICON="✅"
-            RESULT="SUCCESS"
-          else
-            ICON="❌"
-            RESULT="FAILED"
-          fi
-
-          curl -H "Content-Type: application/json" \
-          -d "{
-            \"text\": \"$ICON Workflow $RESULT\n\nRepository: ${{ github.repository }}\nWorkflow: ${{ github.workflow }}\nRun ID: ${{ github.run_id }}\"
-          }" \
-          $TEAMS_WEBHOOK_URL
+  notify:
+    name: Teams Notification (State Aware)
+    needs: build-and-scan
+    if: always()
+    uses: your-org/ci-templates/.github/workflows/teams-notify-stateful.yml@main
+    with:
+      status: ${{ needs.build-and-scan.result }}
+      repo: ${{ github.repository }}
+      workflow: ${{ github.workflow }}
+      run_id: ${{ github.run_id }}
+    secrets:
+      TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
