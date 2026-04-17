@@ -2,12 +2,11 @@ name: Docker Build and Trivy Scan
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
   workflow_call:
     inputs:
       repo_name:
-        description: "Name of the calling repository"
         required: false
         type: string
 
@@ -16,43 +15,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Show caller repo (optional)
-      - name: Show caller repo
-        env:
-          CALLER_REPO: ${{ inputs.repo_name }}
-        run: |
-          echo "Called by: ${CALLER_REPO:-$GITHUB_REPOSITORY}"
-
-      # 3️⃣ Setup Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 4️⃣ Build Docker image
       - name: Build Docker image
         run: docker build -t repo1-image .
 
-      # 5️⃣ Run Trivy scan (fails workflow on CRITICAL issues)
       - name: Run Trivy scan
-        uses: aquasecurity/trivy-action@v0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: repo1-image
           format: table
           exit-code: 1
           severity: CRITICAL
 
-      # 6️⃣ Send Microsoft Teams notification (SUCCESS or FAILURE)
       - name: Send Teams notification
         if: always()
         env:
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
         run: |
-          STATUS="${{ job.status }}"
-
-          if [ "$STATUS" = "success" ]; then
+          if [ "${{ job.status }}" = "success" ]; then
             ICON="✅"
             RESULT="SUCCESS"
           else
