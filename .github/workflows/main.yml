@@ -32,7 +32,7 @@ jobs:
     name: Teams Notification (State Aware)
     needs: build-and-scan
     if: always()
-    uses: your-org/ci-templates/.github/workflows/teams-notify-stateful.yml@main
+    uses: RAVIKUMAR-DEKKA/Repo-1/.github/workflows/teams-notify-stateful.yml@main
     with:
       status: ${{ needs.build-and-scan.result }}
       repo: ${{ github.repository }}
